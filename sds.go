@@ -4,7 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -60,7 +62,7 @@ func main() {
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Set the playing status.
-	s.UpdateStatus(0, "listening to your conversations")
+	s.UpdateListeningStatus("your conversations")
 }
 
 // Function called every time a new message is created in a bot-authorized chan
@@ -70,6 +72,25 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	// Otherwise send the message
-	s.ChannelMessageSend(m.ChannelID, m.Content)
+	// If user requests for information about the server
+	if strings.HasPrefix(m.Content, "./machine") {
+		// Run neofetch command and get output
+		out, err := exec.Command("neofetch", "--disable", "underline",
+			"--stdout").Output()
+
+		// Error check and make sure everything happened correctly
+		if err != nil {
+			fmt.Println("[ERR!] Could not run ./machine command")
+			return
+		}
+
+		// Convert neofetch output to string
+		output := string(out)
+
+		// Send the message
+		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
+	} else {
+		// Otherwise send the message
+		s.ChannelMessageSend(m.ChannelID, m.Content)
+	}
 }
