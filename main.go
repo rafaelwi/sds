@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -53,12 +52,16 @@ func main() {
 
 	// Close the session cleanly
 	dg.Close()
+	fmt.Println("\n[INFO] Bot has successfully closed. Goodnight sweet prince")
 }
 
 // Function called every time a new message is created in a bot-authorized chan
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	for {
-		time.Sleep(10)
-		s.ChannelMessageSend(m.ChannelID, "Hello!")
+	// Ignore all messages created by the bot itself
+	if m.Author.ID == s.State.User.ID {
+		return
 	}
+
+	// Otherwise send the message
+	s.ChannelMessageSend(m.ChannelID, m.Content)
 }
