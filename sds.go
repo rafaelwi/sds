@@ -35,6 +35,7 @@ func main() {
 	}
 
 	// Add handlers to do things
+	dg.AddHandler(ready)
 	dg.AddHandler(messageCreate)
 
 	// Open the websocket and begin listening
@@ -53,6 +54,13 @@ func main() {
 	// Close the session cleanly
 	dg.Close()
 	fmt.Println("\n[INFO] Bot has successfully closed. Goodnight sweet prince")
+}
+
+// Ran when recieves the "ready" status from Discord
+func ready(s *discordgo.Session, event *discordgo.Ready) {
+
+	// Set the playing status.
+	s.UpdateStatus(0, "listening to your conversations")
 }
 
 // Function called every time a new message is created in a bot-authorized chan
