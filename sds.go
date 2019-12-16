@@ -37,6 +37,11 @@ var token string
 var buffer = make([][]byte, 0)
 
 func main() {
+	// Set up the hashmap
+	var guildMap = make(map[string]int)
+	var reverseGuildMap = make(map[int]string)
+	var totalGuilds = 1
+
 	// Check if a token has been provided
 	if token == "" {
 		fmt.Println("[ERR!] No token has been provided. Rerun with ./sds -t " +
@@ -64,7 +69,9 @@ func main() {
 	dg.AddHandler(messageCreate)
 
 	// Set up the scheduled job to run every so often
-	scheduler.Every(60).Seconds().Run(writeMsgsToFile)
+	scheduler.Every().Seconds().Run(func() {
+		writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
+	})
 
 	// Wait here until CTRL-C is recieved
 	fmt.Println("[INFO] SDS is now running. Press CTRL-C to exit.")
@@ -74,7 +81,7 @@ func main() {
 
 	// Close the session cleanly
 	dg.Close()
-	writeMsgsToFile()
+	writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
 	fmt.Println("\n[INFO] Bot has successfully closed. Goodnight sweet prince")
 }
 
@@ -122,32 +129,84 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 // Writes messages to the log
-func writeMsgsToFile() {
-	// TODO: Build a system where we filter messages into different slices
-	// depending on what guild they are from. Possibly make a map of all the
-	// guilds first, then make slices for them, then store messages in the
-	// appropriate slices, then process slice by slice.
-
+func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, largestMapVal *int) {
 	// Check if queue is empty, if so then do not write to file
 	if len(msgQueue) == 0 {
 		fmt.Println("[INFO] Queue is empty, nothing will be written to msglog")
 		return
 	}
+	// TODO: Build a system where we filter messages into different slices
+	// depending on what guild they are from. Possibly make a map of all the
+	// guilds first, then make slices for them, then store messages in the
+	// appropriate slices, then process slice by slice.
 
-	// Open file
-	f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		fmt.Println("[ERR!] Could not open file!", err)
-		return
-	}
-
-	defer f.Close()
-
-	// Write to file
+	// Look through the queue of messages and check if their guild ID exists in
+	// the map
 	for _, msg := range msgQueue {
-		f.WriteString(msg.msg + "\xff")
+		// Check if key exists. If key does not exist then add it to the map
+		_, ok := guildMap[msg.guild]
+
+		if !ok {
+			guildMap[msg.guild] = *largestMapVal
+			reverseGuildMap[*largestMapVal] = msg.guild
+			*largestMapVal++
+		}
 	}
-	fmt.Println("[INFO] Wrote queue to file")
+
+	// Now make slices for the messages
+	sortedMsgs := make([][]discordMessage, *largestMapVal)
+	for i := range sortedMsgs {
+		sortedMsgs[i] = make([]discordMessage, 0)
+	}
+
+	// Now sort the messages to the appropriate slice
+	for _, msg := range msgQueue {
+		loc, ok := guildMap[msg.guild]
+
+		// Quick error check to see if we have a slice for this message
+		if !ok {
+			fmt.Println("[ERR!] No slice exists for this msg! Offending msg: [" + msg.guild + "] : " + msg.msg)
+			continue
+		}
+
+		// Assuming that we do have a slice for this message, put the message
+		// in the respective slice
+		sortedMsgs[loc] = append(sortedMsgs[loc], msg)
+	}
+
+	// Go through each slice and write to the respective files
+	for i, guild := range sortedMsgs {
+		f, err := os.OpenFile(reverseGuildMap[i]+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			fmt.Println("[ERR!] Could not open file!")
+			continue
+		}
+
+		defer f.Close()
+
+		// Write to file
+		for _, msg := range guild {
+			f.WriteString(msg.msg + "\xff")
+		}
+		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i])
+	}
+
+	/*
+		// Open file
+		f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			fmt.Println("[ERR!] Could not open file!", err)
+			return
+		}
+
+		defer f.Close()
+
+		// Write to file
+		for _, msg := range msgQueue {
+			f.WriteString(msg.msg + "\xff")
+		}
+		fmt.Println("[INFO] Wrote queue to file")
+	*/
 
 	// Clear queue
 	msgQueue = make([]discordMessage, 0)
