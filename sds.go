@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/carlescere/scheduler"
@@ -23,10 +22,8 @@ func init() {
 var msgQueue = make([]string, 0)
 var token string
 var buffer = make([][]byte, 0)
-var nextSDSMsg = time.Now().Add(time.Second * 15)
 
 func main() {
-	fmt.Println("next write: ", nextSDSMsg)
 	// Check if a token has been provided
 	if token == "" {
 		fmt.Println("[ERR!] No token has been provided. Rerun with ./sds -t " +
@@ -112,7 +109,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 func writeMsgsToFile() {
 	// Open file
-	f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Println("[ERR!] Could not open file!", err)
 		return
@@ -122,12 +119,9 @@ func writeMsgsToFile() {
 
 	// Write to file
 	for _, msg := range msgQueue {
-		f.WriteString(msg + "\xffff")
+		f.WriteString(msg + "\xff")
 	}
 	fmt.Println("Wrote queue to file")
-
-	// Reset timer
-	nextSDSMsg = time.Now().Add(time.Second * 10)
 
 	// Clear queue
 	msgQueue = make([]string, 0)
