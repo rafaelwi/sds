@@ -1,3 +1,9 @@
+/*
+	SDS Bot (Stuff Discord Says)
+	github.com/rafaelwi
+	12.14.19 - ?
+*/
+
 package main
 
 import (
@@ -13,13 +19,20 @@ import (
 	"github.com/carlescere/scheduler"
 )
 
+// Struct for storing messages in the queue
+type discordMessage struct {
+	msg   string
+	guild string
+}
+
+// Handles command line args
 func init() {
 	flag.StringVar(&token, "t", "", "Bot Token")
 	flag.Parse()
 }
 
 // Create the array/slice that will act as a queue and save messages
-var msgQueue = make([]string, 0)
+var msgQueue = make([]discordMessage, 0)
 var token string
 var buffer = make([][]byte, 0)
 
@@ -39,10 +52,6 @@ func main() {
 		return
 	}
 
-	// Add handlers to do things
-	dg.AddHandler(ready)
-	dg.AddHandler(messageCreate)
-
 	// Open the websocket and begin listening
 	err = dg.Open()
 	if err != nil {
@@ -50,9 +59,12 @@ func main() {
 		return
 	}
 
+	// Add handlers to do things
+	dg.AddHandler(ready)
+	dg.AddHandler(messageCreate)
+
 	// Set up the scheduled job to run every so often
-	job := writeMsgsToFile
-	scheduler.Every(10).Seconds().Run(job)
+	scheduler.Every(60).Seconds().Run(writeMsgsToFile)
 
 	// Wait here until CTRL-C is recieved
 	fmt.Println("[INFO] SDS is now running. Press CTRL-C to exit.")
@@ -62,6 +74,7 @@ func main() {
 
 	// Close the session cleanly
 	dg.Close()
+	writeMsgsToFile()
 	fmt.Println("\n[INFO] Bot has successfully closed. Goodnight sweet prince")
 }
 
@@ -97,17 +110,30 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send the message
 		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
 	} else {
-		// Otherwise send the message
-		s.ChannelMessageSend(m.ChannelID, m.Content)
-		msgQueue = append(msgQueue, m.Content)
+		// Otherwise log the message
+		//s.ChannelMessageSend(m.ChannelID, m.Content)
+		newMsg := discordMessage{m.Content, m.GuildID}
+		msgQueue = append(msgQueue, newMsg)
 		fmt.Println("Current queue: ")
 		for _, msgs := range msgQueue {
-			fmt.Println("[" + msgs + "]")
+			fmt.Println("[" + msgs.guild + " : " + msgs.msg + "]")
 		}
 	}
 }
 
+// Writes messages to the log
 func writeMsgsToFile() {
+	// TODO: Build a system where we filter messages into different slices
+	// depending on what guild they are from. Possibly make a map of all the
+	// guilds first, then make slices for them, then store messages in the
+	// appropriate slices, then process slice by slice.
+
+	// Check if queue is empty, if so then do not write to file
+	if len(msgQueue) == 0 {
+		fmt.Println("[INFO] Queue is empty, nothing will be written to msglog")
+		return
+	}
+
 	// Open file
 	f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
@@ -119,10 +145,10 @@ func writeMsgsToFile() {
 
 	// Write to file
 	for _, msg := range msgQueue {
-		f.WriteString(msg + "\xff")
+		f.WriteString(msg.msg + "\xff")
 	}
-	fmt.Println("Wrote queue to file")
+	fmt.Println("[INFO] Wrote queue to file")
 
 	// Clear queue
-	msgQueue = make([]string, 0)
+	msgQueue = make([]discordMessage, 0)
 }
