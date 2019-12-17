@@ -69,7 +69,7 @@ func main() {
 	dg.AddHandler(messageCreate)
 
 	// Set up the scheduled job to run every so often
-	scheduler.Every().Seconds().Run(func() {
+	scheduler.Every(30).Seconds().Run(func() {
 		writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
 	})
 
