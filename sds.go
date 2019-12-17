@@ -175,7 +175,7 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 	}
 
 	// Go through each slice and write to the respective files
-	for i, guild := range sortedMsgs {
+	for i := 1; i < *largestMapVal; i++ {
 		f, err := os.OpenFile(reverseGuildMap[i]+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			fmt.Println("[ERR!] Could not open file!")
@@ -185,8 +185,8 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 		defer f.Close()
 
 		// Write to file
-		for _, msg := range guild {
-			f.WriteString(msg.msg + "\xff")
+		for j := 0; j < len(sortedMsgs[i]); j++ {
+			f.WriteString(sortedMsgs[i][j].msg + "\xff")
 		}
 		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i])
 	}
