@@ -152,7 +152,13 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 		_, ok := guildMap[msg.guild]
 
 		if !ok {
+			// Create new data for the guild
 			var newData = guildData{*largestMapVal, msg.guild, 0}
+
+			// Count how many msgs have already been received from the guild
+			newData.logMsgCount = countMsgsInLog(newData.guildID + "_msglog.txt")
+
+			// Map the data as needed
 			guildMap[msg.guild] = newData
 			reverseGuildMap[*largestMapVal] = newData
 			*largestMapVal++
@@ -197,6 +203,12 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 			f.WriteString(sortedMsgs[i][j].msg + "\xff")
 		}
 		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i].guildID)
+
+		// Update that guild's message count
+		guildDataCpy := reverseGuildMap[i]
+		guildDataCpy.logMsgCount += len(sortedMsgs[i])
+		guildMap[guildDataCpy.guildID] = guildDataCpy
+		reverseGuildMap[i] = guildDataCpy
 	}
 
 	// Clear queue
