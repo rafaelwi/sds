@@ -9,6 +9,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -37,10 +39,13 @@ var token string
 var buffer = make([][]byte, 0)
 
 func main() {
-	// Set up the hashmap
-	var guildMap = make(map[string]int)
-	var reverseGuildMap = make(map[int]string)
+	var guildMap = make(map[string]guildData)
+	var reverseGuildMap = make(map[int]guildData)
 	var totalGuilds = 1
+	//var guildData = make([]serverData, countNumGuilds())
+
+	// Create the initial hashmaps and slice of data for the different servers
+	//var guildDataArr = buildGuildDataArr()
 
 	// Check if a token has been provided
 	if token == "" {
@@ -129,7 +134,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 // Writes messages to the log
-func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, largestMapVal *int) {
+func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guildData, largestMapVal *int) {
 	// Check if queue is empty, if so then do not write to file
 	if len(msgQueue) == 0 {
 		fmt.Println("[INFO] Queue is empty, nothing will be written to msglog")
@@ -147,8 +152,9 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 		_, ok := guildMap[msg.guild]
 
 		if !ok {
-			guildMap[msg.guild] = *largestMapVal
-			reverseGuildMap[*largestMapVal] = msg.guild
+			var newData = guildData{*largestMapVal, msg.guild, 0}
+			guildMap[msg.guild] = newData
+			reverseGuildMap[*largestMapVal] = newData
 			*largestMapVal++
 		}
 	}
@@ -161,13 +167,15 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 
 	// Now sort the messages to the appropriate slice
 	for _, msg := range msgQueue {
-		loc, ok := guildMap[msg.guild]
+		locObj, ok := guildMap[msg.guild]
 
 		// Quick error check to see if we have a slice for this message
 		if !ok {
 			fmt.Println("[ERR!] No slice exists for this msg! Offending msg: [" + msg.guild + "] : " + msg.msg)
 			continue
 		}
+
+		loc := locObj.sliceID
 
 		// Assuming that we do have a slice for this message, put the message
 		// in the respective slice
@@ -176,7 +184,7 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 
 	// Go through each slice and write to the respective files
 	for i := 1; i < *largestMapVal; i++ {
-		f, err := os.OpenFile(reverseGuildMap[i]+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		f, err := os.OpenFile(reverseGuildMap[i].guildID+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			fmt.Println("[ERR!] Could not open file!")
 			continue
@@ -188,26 +196,90 @@ func writeMsgsToFile(guildMap map[string]int, reverseGuildMap map[int]string, la
 		for j := 0; j < len(sortedMsgs[i]); j++ {
 			f.WriteString(sortedMsgs[i][j].msg + "\xff")
 		}
-		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i])
+		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i].guildID)
 	}
-
-	/*
-		// Open file
-		f, err := os.OpenFile("msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		if err != nil {
-			fmt.Println("[ERR!] Could not open file!", err)
-			return
-		}
-
-		defer f.Close()
-
-		// Write to file
-		for _, msg := range msgQueue {
-			f.WriteString(msg.msg + "\xff")
-		}
-		fmt.Println("[INFO] Wrote queue to file")
-	*/
 
 	// Clear queue
 	msgQueue = make([]discordMessage, 0)
+}
+
+func countNumGuilds() int {
+	count := 0
+
+	// Get the list of files in the current directory
+	files, err := ioutil.ReadDir(".")
+
+	if err != nil {
+		fmt.Println("[ERR!] Current directory could not be read. Exiting program...")
+		os.Exit(1)
+	}
+
+	// Loop through the files slice and get the name of the files. Check if
+	// the suffix of the files is "_msglog.txt". If so, then add 1 to the count
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), "_msglog.txt") {
+			count++
+		}
+	}
+
+	return count
+}
+
+/*
+func buildGuildDataArr() []guildData {
+	var guildDataArr = make([]guildData, 0)
+
+	// Get the list of files in the current directory
+	files, err := ioutil.ReadDir(".")
+
+	if err != nil {
+		fmt.Println("[ERR!] Current directory could not be read. Exiting program...")
+		os.Exit(1)
+	}
+
+	// Loop through the files slice and get the name of the files. From this,
+	// create a guildData object (?) and add it to guildDataArr, which is
+	// really a slice and not an array hehehe
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), "_msglog.txt") {
+			var newGuildData = guildData{file.Name()[0:18], countMsgsInLog(file.Name())}
+			guildDataArr = append(guildDataArr, newGuildData)
+		}
+	}
+
+	return guildDataArr
+}
+*/
+
+func countMsgsInLog(filename string) int {
+	var msgCount = 0
+
+	// Open file, read character by character, and count each time there is a
+	// character '/xff', which is our delimiter
+	file, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("[ERR!] Could not open file " + filename + " for reading")
+		os.Exit(1)
+	}
+
+	defer file.Close()
+
+	buffer := make([]byte, 1)
+
+	for {
+		_, err := file.Read(buffer)
+		if err != nil && err != io.EOF {
+			fmt.Println("[ERR!]", err)
+		}
+
+		if err == io.EOF {
+			break
+		}
+
+		if buffer[0] == byte('ÿ') {
+			msgCount++
+		}
+	}
+
+	return msgCount
 }
