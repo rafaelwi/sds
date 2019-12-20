@@ -239,32 +239,6 @@ func countNumGuilds() int {
 	return count
 }
 
-/*
-func buildGuildDataArr() []guildData {
-	var guildDataArr = make([]guildData, 0)
-
-	// Get the list of files in the current directory
-	files, err := ioutil.ReadDir(".")
-
-	if err != nil {
-		fmt.Println("[ERR!] Current directory could not be read. Exiting program...")
-		os.Exit(1)
-	}
-
-	// Loop through the files slice and get the name of the files. From this,
-	// create a guildData object (?) and add it to guildDataArr, which is
-	// really a slice and not an array hehehe
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), "_msglog.txt") {
-			var newGuildData = guildData{file.Name()[0:18], countMsgsInLog(file.Name())}
-			guildDataArr = append(guildDataArr, newGuildData)
-		}
-	}
-
-	return guildDataArr
-}
-*/
-
 func countMsgsInLog(filename string) int {
 	var msgCount = 0
 
