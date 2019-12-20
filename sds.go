@@ -209,6 +209,8 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 		guildDataCpy.logMsgCount += len(sortedMsgs[i])
 		guildMap[guildDataCpy.guildID] = guildDataCpy
 		reverseGuildMap[i] = guildDataCpy
+
+		fmt.Println("[DBUG] "+reverseGuildMap[i].guildID+"msg count: ", reverseGuildMap[i].logMsgCount)
 	}
 
 	// Clear queue
