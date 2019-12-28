@@ -42,6 +42,7 @@ func main() {
 	var guildMap = make(map[string]guildData)
 	var reverseGuildMap = make(map[int]guildData)
 	var totalGuilds = 1
+	var isFirstSDSTime = true
 	//var guildData = make([]serverData, countNumGuilds())
 
 	// Create the initial hashmaps and slice of data for the different servers
@@ -80,7 +81,7 @@ func main() {
 
 	// Schedule a job to send the SDS message
 	scheduler.Every(30).Seconds().Run(func() {
-		sendSDSMsg()
+		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds)
 	})
 
 	// Wait here until CTRL-C is recieved
@@ -106,8 +107,27 @@ func updateListening(s *discordgo.Session) {
 	s.UpdateListeningStatus("your conversations")
 }
 
-func sendSDSMsg() {
-	fmt.Println("Not implemented yet!")
+func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMap map[int]guildData, totalGuilds int) {
+	if *isFirstTime {
+		fmt.Println("This is the first time that the sendSDSMsg function has been envoked. Will not send anything.")
+		*isFirstTime = false
+		return
+	}
+
+	fmt.Println("This is not the first time that the sendSDSMsg function has been envoked. Will now send something.")
+	for i := 1; i <= totalGuilds; i++ {
+		/* Do a check to make sure that there are messages in this guild, if
+		there are no messages, then continue to the next guild. */
+
+		// Get the guild's data from the reverse map
+
+		// Determine which message to display
+
+		// Open the log file and find that message
+
+		/* Get a list of the channels in that guild and find one named
+		"general". Print the message there. */
+	}
 }
 
 // Function called every time a new message is created in a bot-authorized chan
