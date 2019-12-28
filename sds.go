@@ -78,6 +78,11 @@ func main() {
 		writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
 	})
 
+	// Schedule a job to send the SDS message
+	scheduler.Every(30).Seconds().Run(func() {
+		sendSDSMsg()
+	})
+
 	// Wait here until CTRL-C is recieved
 	fmt.Println("[INFO] SDS is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -94,7 +99,15 @@ func main() {
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Set the playing status.
+	updateListening(s)
+}
+
+func updateListening(s *discordgo.Session) {
 	s.UpdateListeningStatus("your conversations")
+}
+
+func sendSDSMsg() {
+	fmt.Println("Not implemented yet!")
 }
 
 // Function called every time a new message is created in a bot-authorized chan
@@ -123,7 +136,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
 	} else {
 		// Otherwise log the message
-		//s.ChannelMessageSend(m.ChannelID, m.Content)
 		newMsg := discordMessage{m.Content, m.GuildID}
 		msgQueue = append(msgQueue, newMsg)
 		fmt.Println("Current queue: ")
