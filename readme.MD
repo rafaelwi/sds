@@ -37,7 +37,7 @@ Soon, this is a WIP.
 
 
 ## I have an issue while using this bot or I've found a bug. How do I report it?
-Report all issues/bugs to (the issues section of this repo.)[https://github.com/rafaelwi/sds/issues] I will not be responding to issues related to "Discord is down" or "The bot is down." I already know, it will be back up soon.
+Report all issues/bugs to [the issues section of this repo.](https://github.com/rafaelwi/sds/issues) I will not be responding to issues related to "Discord is down" or "The bot is down." I already know, it will be back up soon.
 
 
 ## I want to help. Where do I sign up?
