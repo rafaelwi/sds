@@ -28,5 +28,9 @@ may spam your server with messsages. I am making it a priority at the moment to
 make only certain servers for testing to prevent this but it will take some time. 
 
 
+If you do add this bot to your server, please let me know by messaging me on
+Discord at @rafael#3399
+
+
 ## Can I host the bot?
 Soon, this is a WIP.
