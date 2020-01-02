@@ -34,3 +34,11 @@ Discord at @rafael#3399
 
 ## Can I host the bot?
 Soon, this is a WIP.
+
+
+## I have an issue while using this bot or I've found a bug. How do I report it?
+Report all issues/bugs to (the issues section of this repo.)[https://github.com/rafaelwi/sds/issues] I will not be responding to issues related to "Discord is down" or "The bot is down." I already know, it will be back up soon.
+
+
+## I want to help. Where do I sign up?
+Currently I am content with working by myself on this project, however if you are interested in helping or have an interesting idea for the bot, do not be afraid to shoot me a message on Discord at @rafael#3399. 
