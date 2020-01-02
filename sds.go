@@ -74,7 +74,7 @@ func main() {
 	})
 
 	// Schedule a job to send the SDS message
-	scheduler.Every(30).Seconds().Run(func() {
+	scheduler.Every(90).Minutes().Run(func() {
 		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds, dg)
 	})
 
@@ -315,7 +315,6 @@ func countMsgsInLog(filename string) int {
 
 	for {
 		_, err := file.Read(buffer)
-		fmt.Println("read ", rune(buffer[0]))
 		if err != nil && err != io.EOF {
 			fmt.Println("[ERR!]", err)
 		}
