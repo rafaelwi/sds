@@ -1,5 +1,5 @@
 /*
-	serverdata.go
+	guildData.go
 	github.com/rafaelwi
 */
 

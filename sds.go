@@ -22,12 +22,6 @@ import (
 	"github.com/carlescere/scheduler"
 )
 
-// Struct for storing messages in the queue
-type discordMessage struct {
-	msg   string
-	guild string
-}
-
 // Handles command line args
 func init() {
 	flag.StringVar(&token, "t", "", "Bot Token")
