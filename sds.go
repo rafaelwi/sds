@@ -127,7 +127,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 		}
 
 		// Determine which message to display by generating a random number
-		msgNum := rand.Intn(currentGuild.logMsgCount) - 1
+		msgNum := rand.Intn(currentGuild.logMsgCount)
 
 		filename := currentGuild.guildID + "_msglog.txt"
 
@@ -174,6 +174,13 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 			}
 		}
 
+		/* Check if message is longer than 1 character. If it is not, then
+		skip printing a message this round */
+		if len(msg) <= 1 {
+			fmt.Println("[DBUG] Message is 1 char long, cannot send, skipping this round")
+			continue
+		}
+
 		/* Get a list of the channels in that guild and find one named
 		"general". Print the message there. */
 		listOfChannels, _ := s.GuildChannels(currentGuild.guildID)
@@ -187,7 +194,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 			}
 
 			if c.Name == "general" {
-				s.ChannelMessageSend(c.ID, string(msg))
+				s.ChannelMessageSend(c.ID, string(msg)[1:])
 			}
 		}
 	}
@@ -218,6 +225,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send the message
 		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
 	} else {
+		// Check if the message is blank, if it is then do not save it
+		if m.Content == "" {
+			fmt.Println("[INFO] Blank message sent, nothing will be logged")
+			return
+		}
+
 		// Otherwise log the message
 		newMsg := discordMessage{m.Content, m.GuildID}
 		msgQueue = append(msgQueue, newMsg)
@@ -305,7 +318,7 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 		guildMap[guildDataCpy.guildID] = guildDataCpy
 		reverseGuildMap[i] = guildDataCpy
 
-		fmt.Println("[DBUG] "+reverseGuildMap[i].guildID+"msg count: ", reverseGuildMap[i].logMsgCount)
+		fmt.Println("[DBUG] "+reverseGuildMap[i].guildID+" msg count: ", reverseGuildMap[i].logMsgCount)
 	}
 
 	// Clear queue
@@ -351,6 +364,7 @@ func countMsgsInLog(filename string) int {
 
 	for {
 		_, err := file.Read(buffer)
+		fmt.Println("read ", rune(buffer[0]))
 		if err != nil && err != io.EOF {
 			fmt.Println("[ERR!]", err)
 		}
@@ -359,7 +373,7 @@ func countMsgsInLog(filename string) int {
 			break
 		}
 
-		if buffer[0] == byte('ÿ') {
+		if buffer[0] == byte('ÿ') || rune(buffer[0]) == '�' || buffer[0] == '\xff' {
 			msgCount++
 		}
 	}
