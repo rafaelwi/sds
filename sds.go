@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -81,7 +82,7 @@ func main() {
 
 	// Schedule a job to send the SDS message
 	scheduler.Every(30).Seconds().Run(func() {
-		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds)
+		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds, dg)
 	})
 
 	// Wait here until CTRL-C is recieved
@@ -107,7 +108,7 @@ func updateListening(s *discordgo.Session) {
 	s.UpdateListeningStatus("your conversations")
 }
 
-func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMap map[int]guildData, totalGuilds int) {
+func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMap map[int]guildData, totalGuilds int, s *discordgo.Session) {
 	if *isFirstTime {
 		fmt.Println("This is the first time that the sendSDSMsg function has been envoked. Will not send anything.")
 		*isFirstTime = false
@@ -116,17 +117,79 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 
 	fmt.Println("This is not the first time that the sendSDSMsg function has been envoked. Will now send something.")
 	for i := 1; i <= totalGuilds; i++ {
+		// Get the guild's data from the reverse map
+		currentGuild := reverseGuildMap[i]
+
 		/* Do a check to make sure that there are messages in this guild, if
 		there are no messages, then continue to the next guild. */
+		if currentGuild.logMsgCount == 0 {
+			continue
+		}
 
-		// Get the guild's data from the reverse map
+		// Determine which message to display by generating a random number
+		msgNum := rand.Intn(currentGuild.logMsgCount) - 1
 
-		// Determine which message to display
+		filename := currentGuild.guildID + "_msglog.txt"
 
 		// Open the log file and find that message
+		file, err := os.Open(filename)
+		if err != nil {
+			fmt.Println("[ERR!] Could not open file " + filename + " for reading")
+			os.Exit(1)
+		}
+
+		defer file.Close()
+
+		// Varaibles needed for reading the message
+		buffer := make([]byte, 1)
+		msg := []byte{}
+		msgCount := 0
+
+		for {
+			// Check for errors
+			_, err := file.Read(buffer)
+			if err != nil && err != io.EOF {
+				fmt.Println("[ERR!]", err)
+			}
+
+			if err == io.EOF {
+				break
+			}
+
+			// If the current character is the delimiter, then add 1 to the
+			// msgCount. Exit when msgCount is equal to msgNum
+			if buffer[0] == byte('ÿ') {
+				msgCount++
+			}
+
+			// Now we start reading in the message one character at a time
+			if msgCount == msgNum {
+				msg = append(msg, buffer[0])
+			}
+
+			/* If the msgCount is greater than the number of the message to
+			be read in, then exit the loop */
+			if msgCount > msgNum {
+				break
+			}
+		}
 
 		/* Get a list of the channels in that guild and find one named
 		"general". Print the message there. */
+		listOfChannels, _ := s.GuildChannels(currentGuild.guildID)
+
+		/* Loop through the list until one is found with the name "general"
+		and send a message there. */
+		for _, c := range listOfChannels {
+			// Make sure that the channel type is a text channel
+			if c.Type != discordgo.ChannelTypeGuildText {
+				continue
+			}
+
+			if c.Name == "general" {
+				s.ChannelMessageSend(c.ID, string(msg))
+			}
+		}
 	}
 }
 
