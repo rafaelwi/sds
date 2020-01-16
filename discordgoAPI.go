@@ -47,13 +47,23 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
 	} else {
 		// Check if the message is blank, if it is then do not save it
-		if m.Content == "" {
+		if m.Content == "" && len(m.Attachments) == 0 {
 			fmt.Println("[INFO] Blank message sent, nothing will be logged")
 			return
 		}
 
 		// Otherwise log the message
 		newMsg := discordMessage{m.Content, m.GuildID}
+
+		/* Check if there are attachments, if there are then append their URLs
+		   to the end of the message */
+		if len(m.Attachments) > 0 {
+			for _, file := range m.Attachments {
+				newMsg.msg += " " + file.URL
+			}
+		}
+
+		// Place message in the queue
 		msgQueue = append(msgQueue, newMsg)
 		fmt.Println("Current queue: ")
 		for _, msgs := range msgQueue {
