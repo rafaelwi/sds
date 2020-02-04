@@ -37,10 +37,6 @@ func main() {
 	var reverseGuildMap = make(map[int]guildData)
 	var totalGuilds = 1
 	var isFirstSDSTime = true
-	//var guildData = make([]serverData, countNumGuilds())
-
-	// Create the initial hashmaps and slice of data for the different servers
-	//var guildDataArr = buildGuildDataArr()
 
 	// Check if a token has been provided
 	if token == "" {
@@ -74,7 +70,7 @@ func main() {
 	})
 
 	// Schedule a job to send the SDS message
-	scheduler.Every(90).Minutes().Run(func() {
+	scheduler.Every(30).Seconds().Run(func() {
 		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds, dg)
 	})
 
@@ -121,13 +117,12 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 		// Determine which message to display by generating a random number
 		msgNum := rand.Intn(currentGuild.logMsgCount)
 
-		filename := currentGuild.guildID + "_msglog.txt"
-
 		// Open the log file and find that message
+		filename := currentGuild.guildID + "_msglog.txt"
 		file, err := os.Open(filename)
 		if err != nil {
 			fmt.Println("[ERR!] Could not open file " + filename + " for reading")
-			os.Exit(1)
+			continue
 		}
 
 		defer file.Close()
@@ -303,7 +298,7 @@ func countMsgsInLog(filename string) int {
 
 	// Open file, read character by character, and count each time there is a
 	// character '/xff', which is our delimiter
-	file, err := os.Open(filename)
+	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0600)
 	if err != nil {
 		fmt.Println("[ERR!] Could not open file " + filename + " for reading")
 		os.Exit(1)
