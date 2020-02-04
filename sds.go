@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -181,7 +182,12 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 			}
 
 			if c.Name == "general" {
-				s.ChannelMessageSend(c.ID, string(msg)[1:])
+				msgToSend := string(msg)
+				reIStatements := regexp.MustCompile(`(?i)sds`)
+				reIsStatements := regexp.MustCompile(`(?i)sds is`)
+				msgToSend = reIsStatements.ReplaceAllString(msgToSend, "I am")
+				msgToSend = reIStatements.ReplaceAllString(msgToSend, "I")
+				s.ChannelMessageSend(c.ID, msgToSend[1:])
 			}
 		}
 	}
