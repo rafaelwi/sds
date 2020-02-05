@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/carlescere/scheduler"
@@ -32,6 +33,7 @@ func init() {
 var msgQueue = make([]discordMessage, 0)
 var token string
 var buffer = make([][]byte, 0)
+var errLog = make([]string, 0)
 
 func main() {
 	var guildMap = make(map[string]guildData)
@@ -41,8 +43,7 @@ func main() {
 
 	// Check if a token has been provided
 	if token == "" {
-		fmt.Println("[ERR!] No token has been provided. Rerun with ./sds -t " +
-			"<token>")
+		errorLogger("No token has been provided. Rerun with ./sds -t <token>", 3)
 		return
 	}
 
@@ -50,14 +51,14 @@ func main() {
 	// errors occur and return if so
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("[ERR!] Could not create Discord session: ", err)
+		errorLogger("Could not create the Discord session: "+err.Error(), 3)
 		return
 	}
 
 	// Open the websocket and begin listening
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("[ERR!] Could not open Discord session : ", err)
+		errorLogger("Could not open the Discord session: "+err.Error(), 3)
 		return
 	}
 
@@ -66,12 +67,12 @@ func main() {
 	dg.AddHandler(messageCreate)
 
 	// Set up the scheduled job to run every so often
-	scheduler.Every(30).Seconds().Run(func() {
+	scheduler.Every(90).Seconds().Run(func() {
 		writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
 	})
 
 	// Schedule a job to send the SDS message
-	scheduler.Every(30).Seconds().Run(func() {
+	scheduler.Every(90).Minutes().Run(func() {
 		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds, dg)
 	})
 
@@ -81,8 +82,12 @@ func main() {
 		updateListening(dg)
 	})
 
+	// Schedule logging
+	scheduler.Every(5).Minutes().Run(func() { logMessages() })
+
 	// Wait here until CTRL-C is recieved
 	fmt.Println("[INFO] SDS is now running. Press CTRL-C to exit.")
+	errorLogger("Bot has started :D", 1)
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -90,7 +95,8 @@ func main() {
 	// Close the session cleanly
 	dg.Close()
 	writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
-	fmt.Println("\n[INFO] Bot has successfully closed. Goodnight sweet prince")
+	logMessages()
+	fmt.Println("\n*** Bot has successfully closed. Goodnight sweet prince ***")
 }
 
 func updateListening(s *discordgo.Session) {
@@ -99,12 +105,11 @@ func updateListening(s *discordgo.Session) {
 
 func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMap map[int]guildData, totalGuilds int, s *discordgo.Session) {
 	if *isFirstTime {
-		fmt.Println("This is the first time that the sendSDSMsg function has been envoked. Will not send anything.")
+		errorLogger("First time SEND has been envoked, not sending", 1)
 		*isFirstTime = false
 		return
 	}
 
-	fmt.Println("This is not the first time that the sendSDSMsg function has been envoked. Will now send something.")
 	for i := 1; i <= totalGuilds; i++ {
 		// Get the guild's data from the reverse map
 		currentGuild := reverseGuildMap[i]
@@ -122,7 +127,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 		filename := currentGuild.guildID + "_msglog.txt"
 		file, err := os.Open(filename)
 		if err != nil {
-			fmt.Println("[ERR!] Could not open file " + filename + " for reading")
+			errorLogger("Could not open file "+filename+" for reading", 3)
 			continue
 		}
 
@@ -137,7 +142,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 			// Check for errors
 			_, err := file.Read(buffer)
 			if err != nil && err != io.EOF {
-				fmt.Println("[ERR!]", err)
+				errorLogger(err.Error(), 3)
 			}
 
 			if err == io.EOF {
@@ -165,7 +170,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 		/* Check if message is longer than 1 character. If it is not, then
 		skip printing a message this round */
 		if len(msg) <= 1 {
-			fmt.Println("[DBUG] Message is 1 char long, cannot send, skipping this round")
+			errorLogger("Msg for "+currentGuild.guildID+" unsendable, skipping", 2)
 			continue
 		}
 
@@ -197,7 +202,7 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guildData, largestMapVal *int) {
 	// Check if queue is empty, if so then do not write to file
 	if len(msgQueue) == 0 {
-		fmt.Println("[INFO] Queue is empty, nothing will be written to msglog")
+		errorLogger("Queue is empty, nothing written ", 1)
 		return
 	}
 	// TODO: Build a system where we filter messages into different slices
@@ -237,7 +242,7 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 
 		// Quick error check to see if we have a slice for this message
 		if !ok {
-			fmt.Println("[ERR!] No slice exists for this msg! Offending msg: [" + msg.guild + "] : " + msg.msg)
+			errorLogger("No slice exists for this msg! Offending: [ "+msg.guild+"] : "+msg.msg, 3)
 			continue
 		}
 
@@ -252,7 +257,7 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 	for i := 1; i < *largestMapVal; i++ {
 		f, err := os.OpenFile(reverseGuildMap[i].guildID+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
-			fmt.Println("[ERR!] Could not open file!")
+			errorLogger("Could not open file "+reverseGuildMap[i].guildID, 3)
 			continue
 		}
 
@@ -262,15 +267,13 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 		for j := 0; j < len(sortedMsgs[i]); j++ {
 			f.WriteString(sortedMsgs[i][j].msg + "\xff")
 		}
-		fmt.Println("[INFO] Wrote queue for guild " + reverseGuildMap[i].guildID)
+		errorLogger("Wrote queue for guild "+reverseGuildMap[i].guildID, 1)
 
 		// Update that guild's message count
 		guildDataCpy := reverseGuildMap[i]
 		guildDataCpy.logMsgCount += len(sortedMsgs[i])
 		guildMap[guildDataCpy.guildID] = guildDataCpy
 		reverseGuildMap[i] = guildDataCpy
-
-		fmt.Println("[DBUG] "+reverseGuildMap[i].guildID+" msg count: ", reverseGuildMap[i].logMsgCount)
 	}
 
 	// Clear queue
@@ -282,9 +285,8 @@ func countNumGuilds() int {
 
 	// Get the list of files in the current directory
 	files, err := ioutil.ReadDir(".")
-
 	if err != nil {
-		fmt.Println("[ERR!] Current directory could not be read. Exiting program...")
+		errorLogger("Current directory could not be read. Exiting program", 3)
 		os.Exit(1)
 	}
 
@@ -306,7 +308,7 @@ func countMsgsInLog(filename string) int {
 	// character '/xff', which is our delimiter
 	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0600)
 	if err != nil {
-		fmt.Println("[ERR!] Could not open file " + filename + " for reading")
+		errorLogger("Could not open file "+filename+" for reading", 3)
 		os.Exit(1)
 	}
 
@@ -317,7 +319,7 @@ func countMsgsInLog(filename string) int {
 	for {
 		_, err := file.Read(buffer)
 		if err != nil && err != io.EOF {
-			fmt.Println("[ERR!]", err)
+			errorLogger(err.Error(), 3)
 		}
 
 		if err == io.EOF {
@@ -330,4 +332,47 @@ func countMsgsInLog(filename string) int {
 	}
 
 	return msgCount
+}
+
+func errorLogger(msg string, msgType int) {
+	var msgTypeStr string
+
+	// Determine what kind of error this is
+	if msgType == 0 {
+		msgTypeStr = "DBUG"
+	} else if msgType == 1 {
+		msgTypeStr = "INFO"
+	} else if msgType == 2 {
+		msgTypeStr = "WARN"
+	} else if msgType == 3 {
+		msgTypeStr = "ERR!"
+	} else {
+		msgTypeStr = "UNKN"
+	}
+
+	// Print message to screen
+	fmt.Printf("[%s : %s] %s\n", msgTypeStr, string(time.Now().Format("01-02-2006 15:04:05")), msg)
+	msgToSave := "[" + msgTypeStr + " : " + string(time.Now().Format("01-02-2006 15:04:05")) + "] " + msg
+
+	// Save message to slice
+	errLog = append(errLog, msgToSave)
+}
+
+func logMessages() {
+	if len(errLog) == 0 {
+		return
+	}
+
+	file, err := os.OpenFile("_errlog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println("[ERR!] Could not open file _errlog.txt for reading")
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	for _, m := range errLog {
+		fmt.Fprintln(file, m)
+	}
+
+	errLog = make([]string, 0)
 }
