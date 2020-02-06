@@ -16,7 +16,6 @@ import (
 
 // Ran when recieves the "ready" status from Discord
 func ready(s *discordgo.Session, event *discordgo.Ready) {
-
 	// Set the playing status.
 	updateListening(s)
 }
@@ -40,10 +39,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Convert neofetch output to string
+		// Convert neofetch output to string and send the message
 		output := string(out)
-
-		// Send the message
 		s.ChannelMessageSend(m.ChannelID, "```"+output+"```")
 	} else {
 		// Check if the message is blank, if it is then do not save it
@@ -65,9 +62,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// Place message in the queue
 		msgQueue = append(msgQueue, newMsg)
+
+		/* Debug code for queues
 		fmt.Println("Current queue: ")
 		for _, msgs := range msgQueue {
 			fmt.Println("[" + msgs.guild + " : " + msgs.msg + "]")
 		}
+		*/
 	}
 }
