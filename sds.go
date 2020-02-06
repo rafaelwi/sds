@@ -33,7 +33,6 @@ func init() {
 var msgQueue = make([]discordMessage, 0)
 var buffer = make([][]byte, 0)
 var errLog = make([]string, 0)
-var timeToNextMsg = rand.Int()
 var token string
 
 func main() {
@@ -73,7 +72,7 @@ func main() {
 	})
 
 	// Schedule a job to send the SDS message
-	scheduler.Every(90).Minutes().Run(func() {
+	scheduler.Every(42).Minutes().Run(func() {
 		sendSDSMsg(&isFirstSDSTime, guildMap, reverseGuildMap, totalGuilds, dg)
 	})
 
@@ -115,6 +114,13 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData,
 	for i := 1; i <= totalGuilds; i++ {
 		// Get the guild's data from the reverse map
 		currentGuild := reverseGuildMap[i]
+
+		/* 	In order to make the bot feel more "random", generate a number
+		between 0 and 4, if its 4 then send a message, otherwise don't  */
+		yesSend := rand.Intn(3)
+		if yesSend < 2 {
+			continue
+		}
 
 		/* Do a check to make sure that there are messages in this guild, if
 		there are no messages, then continue to the next guild. */
