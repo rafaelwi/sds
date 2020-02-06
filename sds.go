@@ -31,9 +31,10 @@ func init() {
 
 // Create the array/slice that will act as a queue and save messages
 var msgQueue = make([]discordMessage, 0)
-var token string
 var buffer = make([][]byte, 0)
 var errLog = make([]string, 0)
+var timeToNextMsg = rand.Int()
+var token string
 
 func main() {
 	var guildMap = make(map[string]guildData)
@@ -43,7 +44,7 @@ func main() {
 
 	// Check if a token has been provided
 	if token == "" {
-		errorLogger("No token has been provided. Rerun with ./sds -t <token>", 3)
+		errorLogger("No token provided. Rerun with ./sds -t <token>", 3)
 		return
 	}
 
@@ -96,14 +97,15 @@ func main() {
 	dg.Close()
 	writeMsgsToFile(guildMap, reverseGuildMap, &totalGuilds)
 	logMessages()
-	fmt.Println("\n*** Bot has successfully closed. Goodnight sweet prince ***")
+	fmt.Println("\n** Bot has successfully closed. Goodnight sweet prince **")
 }
 
 func updateListening(s *discordgo.Session) {
 	s.UpdateListeningStatus("your conversations")
 }
 
-func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMap map[int]guildData, totalGuilds int, s *discordgo.Session) {
+func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData,
+	reverseGuildMap map[int]guildData, totalGuilds int, s *discordgo.Session) {
 	if *isFirstTime {
 		errorLogger("First time SEND has been envoked, not sending", 1)
 		*isFirstTime = false
@@ -170,7 +172,8 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 		/* Check if message is longer than 1 character. If it is not, then
 		skip printing a message this round */
 		if len(msg) <= 1 {
-			errorLogger("Msg for "+currentGuild.guildID+" unsendable, skipping", 2)
+			errorLogger("Unsendable msg for "+currentGuild.guildID+
+				", skipping", 2)
 			continue
 		}
 
@@ -199,7 +202,8 @@ func sendSDSMsg(isFirstTime *bool, guildMap map[string]guildData, reverseGuildMa
 }
 
 // Writes messages to the log
-func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guildData, largestMapVal *int) {
+func writeMsgsToFile(guildMap map[string]guildData,
+	reverseGuildMap map[int]guildData, largestMapVal *int) {
 	// Check if queue is empty, if so then do not write to file
 	if len(msgQueue) == 0 {
 		errorLogger("Queue is empty, nothing written ", 1)
@@ -221,7 +225,8 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 			var newData = guildData{*largestMapVal, msg.guild, 0}
 
 			// Count how many msgs have already been received from the guild
-			newData.logMsgCount = countMsgsInLog(newData.guildID + "_msglog.txt")
+			newData.logMsgCount = countMsgsInLog(newData.guildID +
+				"_msglog.txt")
 
 			// Map the data as needed
 			guildMap[msg.guild] = newData
@@ -242,7 +247,8 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 
 		// Quick error check to see if we have a slice for this message
 		if !ok {
-			errorLogger("No slice exists for this msg! Offending: [ "+msg.guild+"] : "+msg.msg, 3)
+			errorLogger("No slice exists for this msg! Offending: [ "+
+				msg.guild+"] : "+msg.msg, 3)
 			continue
 		}
 
@@ -255,18 +261,20 @@ func writeMsgsToFile(guildMap map[string]guildData, reverseGuildMap map[int]guil
 
 	// Go through each slice and write to the respective files
 	for i := 1; i < *largestMapVal; i++ {
-		f, err := os.OpenFile(reverseGuildMap[i].guildID+"_msglog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		file, err := os.OpenFile(reverseGuildMap[i].guildID+"_msglog.txt",
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			errorLogger("Could not open file "+reverseGuildMap[i].guildID, 3)
 			continue
 		}
 
-		defer f.Close()
+		defer file.Close()
 
 		// Write to file
 		for j := 0; j < len(sortedMsgs[i]); j++ {
-			f.WriteString(sortedMsgs[i][j].msg + "\xff")
+			file.WriteString(sortedMsgs[i][j].msg + "\xff")
 		}
+
 		errorLogger("Wrote queue for guild "+reverseGuildMap[i].guildID, 1)
 
 		// Update that guild's message count
@@ -326,7 +334,8 @@ func countMsgsInLog(filename string) int {
 			break
 		}
 
-		if buffer[0] == byte('ÿ') || rune(buffer[0]) == '�' || buffer[0] == '\xff' {
+		if buffer[0] == byte('ÿ') || rune(buffer[0]) == '�' ||
+			buffer[0] == '\xff' {
 			msgCount++
 		}
 	}
@@ -351,8 +360,10 @@ func errorLogger(msg string, msgType int) {
 	}
 
 	// Print message to screen
-	fmt.Printf("[%s : %s] %s\n", msgTypeStr, string(time.Now().Format("01-02-2006 15:04:05")), msg)
-	msgToSave := "[" + msgTypeStr + " : " + string(time.Now().Format("01-02-2006 15:04:05")) + "] " + msg
+	fmt.Printf("[%s : %s] %s\n", msgTypeStr,
+		string(time.Now().Format("01-02-2006 15:04:05")), msg)
+	msgToSave := "[" + msgTypeStr + " : " +
+		string(time.Now().Format("01-02-2006 15:04:05")) + "] " + msg
 
 	// Save message to slice
 	errLog = append(errLog, msgToSave)
@@ -363,7 +374,8 @@ func logMessages() {
 		return
 	}
 
-	file, err := os.OpenFile("_errlog.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	file, err := os.OpenFile("_errlog.txt",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Println("[ERR!] Could not open file _errlog.txt for reading")
 		os.Exit(1)
